@@ -37,8 +37,6 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // ファイル参照はWorkerに渡せないのでRefで保持
-  const pendingFilesRef = useRef<File[]>([]);
 
   const pagedVideos = useMemo(() => {
     const start = page * PAGE_SIZE;
@@ -67,44 +65,39 @@ export default function Home() {
     const files = Array.from(e.target.files ?? []).filter(f => f.type.startsWith('video/'));
     if (files.length === 0) return;
 
-    pendingFilesRef.current = files;
     setIsLoading(true);
     setLoadedCount(0);
     setTotalCount(files.length);
     startTimer();
 
-    // Worker でファイル名のみ処理（メインスレッドをブロックしない）
-    const worker = new Worker('/video-worker.js');
+    // 16msごとに少しずつ処理してUIをブロックしない
+    const CHUNK = 200;
+    let i = 0;
+    const built: VideoFile[] = [];
 
-    worker.onmessage = (ev) => {
-      const { type, loaded, total } = ev.data;
-      if (type === 'progress') {
-        setLoadedCount(loaded);
-      } else if (type === 'done') {
-        // Worker完了後、メインスレッドでFileオブジェクトと結合
-        const result: VideoFile[] = pendingFilesRef.current.map(f => ({ name: f.name, file: f }));
-        setVideos(prev => [...prev, ...result]);
+    const processNext = () => {
+      const deadline = Date.now() + 12; // 12ms以内に処理
+      while (i < files.length && Date.now() < deadline) {
+        const end = Math.min(i + CHUNK, files.length);
+        for (let j = i; j < end; j++) {
+          built.push({ name: files[j].name, file: files[j] });
+        }
+        i = end;
+      }
+
+      setLoadedCount(i);
+
+      if (i < files.length) {
+        requestAnimationFrame(processNext);
+      } else {
+        setVideos(prev => [...prev, ...built]);
         setIsLoading(false);
         setPage(0);
         stopTimer();
-        worker.terminate();
-        pendingFilesRef.current = [];
       }
     };
 
-    worker.onerror = () => {
-      // Workerが使えない環境はフォールバック
-      const result: VideoFile[] = files.map(f => ({ name: f.name, file: f }));
-      setVideos(prev => [...prev, ...result]);
-      setLoadedCount(files.length);
-      setIsLoading(false);
-      setPage(0);
-      stopTimer();
-      worker.terminate();
-    };
-
-    // FileオブジェクトはWorkerに渡せないので名前だけ送る
-    worker.postMessage(files.map(f => ({ name: f.name })));
+    requestAnimationFrame(processNext);
     e.target.value = '';
   }, [startTimer, stopTimer]);
 
@@ -192,7 +185,7 @@ export default function Home() {
         {isLoading && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ height: 4, backgroundColor: '#2a2a2a', borderRadius: 4, overflow: 'hidden', marginBottom: 6 }}>
-              <div style={{ height: '100%', backgroundColor: GOLD, borderRadius: 4, width: `${progress}%`, transition: 'width 0.15s ease' }} />
+              <div style={{ height: '100%', backgroundColor: GOLD, borderRadius: 4, width: `${progress}%`, transition: 'width 0.1s ease' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#666' }}>
               <span>{progress}% · {loadedCount.toLocaleString()} / {totalCount.toLocaleString()} 本</span>
