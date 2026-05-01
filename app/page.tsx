@@ -29,9 +29,14 @@ export default function Home() {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [playerUrl, setPlayerUrl] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const fullscreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const pagedVideos = useMemo(() => {
     const start = page * PAGE_SIZE;
@@ -39,6 +44,28 @@ export default function Home() {
   }, [videos, page]);
 
   const totalPages = Math.ceil(videos.length / PAGE_SIZE);
+  const progress = totalCount > 0 ? Math.round((loadedCount / totalCount) * 100) : 0;
+
+  // 経過時間タイマー
+  const startTimer = useCallback(() => {
+    startTimeRef.current = Date.now();
+    setElapsedMs(0);
+    timerRef.current = setInterval(() => {
+      setElapsedMs(Date.now() - startTimeRef.current);
+    }, 100);
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setElapsedMs(Date.now() - startTimeRef.current);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
 
   const handleAddClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -47,19 +74,35 @@ export default function Home() {
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []).filter(f => f.type.startsWith('video/'));
     if (files.length === 0) return;
+
     setIsLoading(true);
-    const CHUNK = 1000;
+    setLoadedCount(0);
+    setTotalCount(files.length);
+    startTimer();
+
+    const CHUNK = 500;
     let i = 0;
+    let accumulated: VideoFile[] = [];
+
     const processChunk = () => {
       const chunk = files.slice(i, i + CHUNK).map(f => ({ name: f.name, file: f }));
-      setVideos(prev => [...prev, ...chunk]);
+      accumulated = [...accumulated, ...chunk];
       i += CHUNK;
-      if (i < files.length) setTimeout(processChunk, 0);
-      else { setIsLoading(false); setPage(0); }
+      setLoadedCount(Math.min(i, files.length));
+
+      if (i < files.length) {
+        setVideos(prev => [...prev, ...chunk]);
+        setTimeout(processChunk, 0);
+      } else {
+        setVideos(prev => [...prev, ...chunk]);
+        setIsLoading(false);
+        setPage(0);
+        stopTimer();
+      }
     };
     setTimeout(processChunk, 0);
     e.target.value = '';
-  }, []);
+  }, [startTimer, stopTimer]);
 
   const openPlayer = useCallback((globalIndex: number) => {
     const v = videos[globalIndex];
@@ -105,13 +148,27 @@ export default function Home() {
     boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
   };
 
+  const formatTime = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  };
+
+  const eta = (() => {
+    if (!isLoading || loadedCount === 0 || elapsedMs === 0) return null;
+    const rate = loadedCount / elapsedMs;
+    const remaining = (totalCount - loadedCount) / rate;
+    return formatTime(Math.round(remaining));
+  })();
+
   return (
     <>
       <main style={{ padding: 20, backgroundColor: '#121212', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif' }}>
-        <header style={{ marginBottom: 24, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16 }}>
-          {videos.length > 0 && (
+        <header style={{ marginBottom: 20, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16 }}>
+          {(videos.length > 0 || isLoading) && (
             <span style={{ color: '#666', fontSize: 12, marginRight: 'auto' }}>
-              {isLoading ? '読み込み中...' : `${videos.length.toLocaleString()} 本`}
+              {isLoading
+                ? `${loadedCount.toLocaleString()} / ${totalCount.toLocaleString()} 本`
+                : `${videos.length.toLocaleString()} 本 · ${formatTime(elapsedMs)}で読み込み完了`}
             </span>
           )}
           <button onClick={() => setIsBlurred(b => !b)} style={{ ...iconBtn, border: isBlurred ? `2px solid ${GOLD}` : '1px solid #333' }} className="icon-btn">
@@ -123,9 +180,21 @@ export default function Home() {
           <input ref={fileInputRef} type="file" accept="video/*" multiple onChange={handleFileChange} style={{ display: 'none' }} />
         </header>
 
+        {/* 読み込み進捗バー */}
         {isLoading && (
-          <div style={{ marginBottom: 16, height: 3, backgroundColor: '#2a2a2a', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', backgroundColor: GOLD, width: '30%', borderRadius: 2, animation: 'loading 1s ease-in-out infinite alternate' }} />
+          <div style={{ marginBottom: 16 }}>
+            {/* バー */}
+            <div style={{ height: 4, backgroundColor: '#2a2a2a', borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
+              <div style={{
+                height: '100%', backgroundColor: GOLD, borderRadius: 4,
+                width: `${progress}%`, transition: 'width 0.1s ease',
+              }} />
+            </div>
+            {/* 数値 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#666' }}>
+              <span>{progress}% · {loadedCount.toLocaleString()} / {totalCount.toLocaleString()} 本</span>
+              <span>経過 {formatTime(elapsedMs)}{eta ? ` · 残り約 ${eta}` : ''}</span>
+            </div>
           </div>
         )}
 
@@ -183,7 +252,6 @@ export default function Home() {
       )}
 
       <style jsx>{`
-        @keyframes loading { from { transform: translateX(-100%); } to { transform: translateX(400%); } }
         .icon-btn:hover { background-color: #2a2a2a !important; transform: translateY(-2px) scale(1.05); }
         .icon-btn:active { transform: scale(0.95); }
         .video-card:hover { border-color: ${GOLD} !important; transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
