@@ -185,7 +185,7 @@ export default function Home() {
           <button onClick={()=>{}} style={iconBtn} className="icon-btn" disabled={isLoading}>
             
           </button>
-          <input ref={fileInputRef} type="file" accept="video/*" multiple onChange={handleFileChange} style={{ display: 'none' }} />
+          
         </header>
 
         {/* 上限警告 */}
@@ -280,3 +280,4 @@ export default function Home() {
 //mic
 //fix
 //v4
+//v5
