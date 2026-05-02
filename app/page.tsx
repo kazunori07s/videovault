@@ -176,13 +176,13 @@ export default function Home() {
                 : `${videos.length.toLocaleString()} 本 · ${formatTime(elapsedMs)}で完了`}
             </span>
           )}
-          <button onClick={handleVoiceSearch} className="icon-btn" style={{...iconBtnBase, border: isListening ? '2px solid #ef4444' : '1px solid #333'}} aria-label="音声検索">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isListening ? '#ef4444' : GOLD} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          <button onClick={()=>{}} className="icon-btn" style={{...iconBtnBase, border: false ? '2px solid #ef4444' : '1px solid #333'}} aria-label="音声検索">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={false ? '#ef4444' : GOLD} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </button>
           <button onClick={() => setIsBlurred(b => !b)} style={{ ...iconBtn, border: isBlurred ? `2px solid ${GOLD}` : '1px solid #333' }} className="icon-btn">
             {isBlurred ? <EyeIcon color={GOLD} /> : <BlurIcon color={GOLD} />}
           </button>
-          <button onClick={handleAddClick} style={iconBtn} className="icon-btn" disabled={isLoading}>
+          <button onClick={()=>{}} style={iconBtn} className="icon-btn" disabled={isLoading}>
             
           </button>
           <input ref={fileInputRef} type="file" accept="video/*" multiple onChange={handleFileChange} style={{ display: 'none' }} />
@@ -278,3 +278,4 @@ export default function Home() {
 //v3
 //voice
 //mic
+//fix
