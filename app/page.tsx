@@ -167,7 +167,7 @@ export default function Home() {
 
   return (
     <>
-      <main style={{ padding: 20, backgroundColor: '#121212', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif' }}>
+      <><input type="file" accept="video/*" multiple onChange={handleFileChange} style={{position:"fixed",inset:0,zIndex:9998,width:"100%",height:"100%",opacity:0,cursor:"pointer",}} /><main style={{ padding: 20, backgroundColor: '#121212', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif' }}>
         <header style={{ marginBottom: 20, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16 }}>
           {(videos.length > 0 || isLoading) && (
             <span style={{ color: '#666', fontSize: 12, marginRight: 'auto' }}>
@@ -281,3 +281,4 @@ export default function Home() {
 //fix
 //v4
 //v5
+//tap
